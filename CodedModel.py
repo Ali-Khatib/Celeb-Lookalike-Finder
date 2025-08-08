@@ -2,15 +2,12 @@
 # All imports
 
 # Image capture & processing
-import cv2
 from PIL import Image
-import numpy as np
 import os
 
 # ML model & preprocessing
 import torch
 from torchvision import models, transforms
-from torch.nn.functional import cosine_similarity
 
 """
 def capture_image(filename="selfie.jpg"):
