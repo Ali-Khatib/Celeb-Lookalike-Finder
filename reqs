@@ -1,7 +1,3 @@
-
-python-dotenv>=1.0.0
-streamlit>=1.28.0
-
 #streamlit run interface.py , for the code written by me
 
 #your own groq api key, always free and usable
