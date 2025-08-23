@@ -66,9 +66,8 @@ def get_celebrity_list(gender):
     return sorted([d for d in os.listdir(celeb_dir) if os.path.isdir(os.path.join(celeb_dir, d))])
 
 # --- Prediction ---
-def predict_lookalike(model, user_img_tensor, celeb_list, gender):
-    max_score = -1
-    best_match = None
+def predict_lookalike(model, user_img_tensor, celeb_list, gender, top_k=3):
+    scores = []  # store (celeb_name, score)
 
     with torch.no_grad():
         user_vec = model(user_img_tensor).squeeze().view(-1)
@@ -84,12 +83,14 @@ def predict_lookalike(model, user_img_tensor, celeb_list, gender):
                 celeb_vec = model(celeb_tensor).squeeze().view(-1)
 
                 score = torch.nn.functional.cosine_similarity(user_vec, celeb_vec, dim=0).item()
+                scores.append((celeb_name, score))
 
-                if score > max_score:
-                    max_score = score
-                    best_match = celeb_name
+    # Sort by similarity descending
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)
 
-    return best_match, max_score
+    # Return top_k matches
+    return scores[:top_k]
+
 
 # --- MAIN APP ---
 def main():
