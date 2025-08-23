@@ -25,7 +25,7 @@ client = OpenAI(
 def generate_explanation(celeb_name, score):
     prompt = (
         f"Write a mid length, fun, and friendly but not so friendly kiss ass explanation why someone matches {celeb_name} "
-        f"with a similarity score of {score:.2f}. Mention the 2 other celebrities directly before the most lookalike too Mention all aspects that caused this similarity to occur like face structure,hair or vibe "
+        f"with a similarity score of {score:.2f}. Mention all aspects that caused this similarity to occur like face structure,hair or vibe "
         f"(include other things on your own) and give them tips on what to improve nicely, the limit is 5000 tokens."
     )
     try:
@@ -66,8 +66,9 @@ def get_celebrity_list(gender):
     return sorted([d for d in os.listdir(celeb_dir) if os.path.isdir(os.path.join(celeb_dir, d))])
 
 # --- Prediction ---
-def predict_lookalike(model, user_img_tensor, celeb_list, gender, top_k=3):
-    scores = []  # store (celeb_name, score)
+def predict_lookalike(model, user_img_tensor, celeb_list, gender):
+    max_score = -1
+    best_match = None
 
     with torch.no_grad():
         user_vec = model(user_img_tensor).squeeze().view(-1)
@@ -83,14 +84,12 @@ def predict_lookalike(model, user_img_tensor, celeb_list, gender, top_k=3):
                 celeb_vec = model(celeb_tensor).squeeze().view(-1)
 
                 score = torch.nn.functional.cosine_similarity(user_vec, celeb_vec, dim=0).item()
-                scores.append((celeb_name, score))
 
-    # Sort by similarity descending
-    scores = sorted(scores, key=lambda x: x[1], reverse=True)
+                if score > max_score:
+                    max_score = score
+                    best_match = celeb_name
 
-    # Return top_k matches
-    return scores[:top_k]
-
+    return best_match, max_score
 
 # --- MAIN APP ---
 def main():
@@ -113,25 +112,20 @@ def main():
                 celeb_list = get_celebrity_list(gender)
                 lookalike, score = predict_lookalike(model, user_tensor, celeb_list, gender)
 
-            lookalikes = predict_lookalike(model, user_tensor, celeb_list, gender, top_k=3)
+            if lookalike:
+                st.success(f"🎉 You look like: **{lookalike}** (Similarity Score: {score:.2f})")
 
-            if lookalikes:
-                st.success("🎉 Your top lookalikes:")
-                for rank, (name, score) in enumerate(lookalikes, 1):
-                    st.markdown(f"**#{rank}: {name}** (Similarity: {score:.2f})")
+                # 🖼️ Show celeb images
+                celeb_img_dir = os.path.join(CELEB_BASE_DIR, gender, lookalike)
+                celeb_imgs = [os.path.join(celeb_img_dir, img) for img in os.listdir(celeb_img_dir)]
+                st.image([Image.open(img) for img in celeb_imgs], caption=[lookalike] * len(celeb_imgs), width=200)
 
-                    celeb_img_dir = os.path.join(CELEB_BASE_DIR, gender, name)
-                    celeb_imgs = [os.path.join(celeb_img_dir, img) for img in os.listdir(celeb_img_dir)]
-                    st.image([Image.open(img) for img in celeb_imgs], caption=[name] * len(celeb_imgs), width=200)
+                st.markdown("---")  # Horizontal rule for separation
 
-                st.markdown("---")
-                # 🎨 Explanation for the best one, with runner-ups mentioned
-                best_name, best_score = lookalikes[0]
-                runnerups = [n for n, _ in lookalikes[1:]]
+                # 🎨 Explanation from OpenAI
                 with st.spinner("Generating explanation ..."):
-                    explanation = generate_explanation(best_name, best_score)
+                    explanation = generate_explanation(lookalike, score)
                 st.markdown("### 🤖 Why this match?")
-                st.write(f"Runner-ups: {', '.join(runnerups)}")
                 st.write(explanation)
 
 if __name__ == "__main__":
