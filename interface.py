@@ -24,8 +24,8 @@ client = OpenAI(
 # Generate an explanation using a supported model
 def generate_explanation(celeb_name, score):
     prompt = (
-        f"Write a mid length, fun, and friendly explanation why someone matches {celeb_name} "
-        f"with a similarity score of {score:.2f}. Mention all aspects that caused this similarity to occur like face structure,hair or vibe "
+        f"Write a mid length, fun, and friendly but not so friendly kiss ass explanation why someone matches {celeb_name} "
+        f"with a similarity score of {score:.2f}. Mention the 2 other celebrities directly before the most lookalike too Mention all aspects that caused this similarity to occur like face structure,hair or vibe "
         f"(include other things on your own) and give them tips on what to improve nicely, the limit is 5000 tokens."
     )
     try:
@@ -112,20 +112,25 @@ def main():
                 celeb_list = get_celebrity_list(gender)
                 lookalike, score = predict_lookalike(model, user_tensor, celeb_list, gender)
 
-            if lookalike:
-                st.success(f"🎉 You look like: **{lookalike}** (Similarity Score: {score:.2f})")
+            lookalikes = predict_lookalike(model, user_tensor, celeb_list, gender, top_k=3)
 
-                # 🖼️ Show celeb images
-                celeb_img_dir = os.path.join(CELEB_BASE_DIR, gender, lookalike)
-                celeb_imgs = [os.path.join(celeb_img_dir, img) for img in os.listdir(celeb_img_dir)]
-                st.image([Image.open(img) for img in celeb_imgs], caption=[lookalike] * len(celeb_imgs), width=200)
+            if lookalikes:
+                st.success("🎉 Your top lookalikes:")
+                for rank, (name, score) in enumerate(lookalikes, 1):
+                    st.markdown(f"**#{rank}: {name}** (Similarity: {score:.2f})")
 
-                st.markdown("---")  # Horizontal rule for separation
+                    celeb_img_dir = os.path.join(CELEB_BASE_DIR, gender, name)
+                    celeb_imgs = [os.path.join(celeb_img_dir, img) for img in os.listdir(celeb_img_dir)]
+                    st.image([Image.open(img) for img in celeb_imgs], caption=[name] * len(celeb_imgs), width=200)
 
-                # 🎨 Explanation from OpenAI
+                st.markdown("---")
+                # 🎨 Explanation for the best one, with runner-ups mentioned
+                best_name, best_score = lookalikes[0]
+                runnerups = [n for n, _ in lookalikes[1:]]
                 with st.spinner("Generating explanation ..."):
-                    explanation = generate_explanation(lookalike, score)
+                    explanation = generate_explanation(best_name, best_score)
                 st.markdown("### 🤖 Why this match?")
+                st.write(f"Runner-ups: {', '.join(runnerups)}")
                 st.write(explanation)
 
 if __name__ == "__main__":
