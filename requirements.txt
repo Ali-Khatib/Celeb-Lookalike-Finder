@@ -4,3 +4,6 @@ torch
 torchvision
 python-dotenv
 openai
+
+
+#streamlit run interface.py

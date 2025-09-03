@@ -30,7 +30,7 @@ def generate_explanation(celeb_name, score):
     )
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",  # ✅ updated to a supported Groq model
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": "You are a witty celebrity lookalike commentator."},
                 {"role": "user", "content": prompt},
@@ -67,12 +67,12 @@ def get_celebrity_list(gender):
 
 # --- Prediction ---
 def predict_lookalike(model, user_img_tensor, celeb_list, gender):
-    max_score = -1
-    best_match = None
+    user_vec = model(user_img_tensor).squeeze().view(-1)
+    user_vec = torch.nn.functional.normalize(user_vec, dim=0)
+
+    max_score, best_match = -1, None
 
     with torch.no_grad():
-        user_vec = model(user_img_tensor).squeeze().view(-1)
-
         for celeb_name in celeb_list:
             celeb_img_dir = os.path.join(CELEB_BASE_DIR, gender, celeb_name)
             celeb_imgs = [f for f in os.listdir(celeb_img_dir) if f.lower().endswith(('jpg', 'jpeg', 'png'))]
@@ -82,14 +82,14 @@ def predict_lookalike(model, user_img_tensor, celeb_list, gender):
                 celeb_img = Image.open(celeb_img_path).convert("RGB")
                 celeb_tensor = preprocess_image(celeb_img)
                 celeb_vec = model(celeb_tensor).squeeze().view(-1)
+                celeb_vec = torch.nn.functional.normalize(celeb_vec, dim=0)
 
-                score = torch.nn.functional.cosine_similarity(user_vec, celeb_vec, dim=0).item()
-
+                score = torch.dot(user_vec, celeb_vec).item()
                 if score > max_score:
-                    max_score = score
-                    best_match = celeb_name
+                    max_score, best_match = score, celeb_name
 
     return best_match, max_score
+
 
 # --- MAIN APP ---
 def main():
